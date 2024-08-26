@@ -21,5 +21,12 @@ else
 fi
 
 cd ../
-rm web/src/wasm/*
+
+if [ -d "web/src/wasm/" ]; 
+then
+  rm web/src/wasm/*
+else
+  mkdir web/src/wasm/
+fi
+
 cp dist/* web/src/wasm/

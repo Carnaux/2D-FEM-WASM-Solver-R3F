@@ -29,7 +29,7 @@ class FEMSolver {
 };
 
 // Binding code
-EMSCRIPTEN_BINDINGS(solver_class) {
+EMSCRIPTEN_BINDINGS(FemSolver) {
   class_<FEMSolver>("FEMSolver")
     .constructor<int, std::string>()
     .function("incrementX", &FEMSolver::incrementX)

@@ -4,8 +4,6 @@
   "private": true,
   "scripts": {
     "em_source": "source /Users/danielfernandes/Desktop/Lab/emsdk/emsdk_env.sh",
-    "build_opencv_pkg": "cd source/libraries/opencv && /Users/danielfernandes/Desktop/Lab/emsdk/upstream/emscripten/emcmake python3 ./platforms/js/build_js.py build_js --build_wasm --cmake_option=-DOPENCV_GENERATE_PKGCONFIG=ON --emscripten_dir /Users/danielfernandes/Desktop/Lab/emsdk/upstream/emscripten",
-    "install_opencv": "cd source/libraries/opencv/build_js && sudo make install",
     "build": "./build.sh"
   },
   "browserslist": {
