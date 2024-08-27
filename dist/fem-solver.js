@@ -959,6 +959,91 @@ function dbg(...args) {
       abort(`Assertion failed: ${UTF8ToString(condition)}, at: ` + [filename ? UTF8ToString(filename) : 'unknown filename', line, func ? UTF8ToString(func) : 'unknown function']);
     };
 
+  class ExceptionInfo {
+      // excPtr - Thrown object pointer to wrap. Metadata pointer is calculated from it.
+      constructor(excPtr) {
+        this.excPtr = excPtr;
+        this.ptr = excPtr - 24;
+      }
+  
+      set_type(type) {
+        HEAPU32[(((this.ptr)+(4))>>2)] = type;
+      }
+  
+      get_type() {
+        return HEAPU32[(((this.ptr)+(4))>>2)];
+      }
+  
+      set_destructor(destructor) {
+        HEAPU32[(((this.ptr)+(8))>>2)] = destructor;
+      }
+  
+      get_destructor() {
+        return HEAPU32[(((this.ptr)+(8))>>2)];
+      }
+  
+      set_caught(caught) {
+        caught = caught ? 1 : 0;
+        HEAP8[(this.ptr)+(12)] = caught;
+      }
+  
+      get_caught() {
+        return HEAP8[(this.ptr)+(12)] != 0;
+      }
+  
+      set_rethrown(rethrown) {
+        rethrown = rethrown ? 1 : 0;
+        HEAP8[(this.ptr)+(13)] = rethrown;
+      }
+  
+      get_rethrown() {
+        return HEAP8[(this.ptr)+(13)] != 0;
+      }
+  
+      // Initialize native structure fields. Should be called once after allocated.
+      init(type, destructor) {
+        this.set_adjusted_ptr(0);
+        this.set_type(type);
+        this.set_destructor(destructor);
+      }
+  
+      set_adjusted_ptr(adjustedPtr) {
+        HEAPU32[(((this.ptr)+(16))>>2)] = adjustedPtr;
+      }
+  
+      get_adjusted_ptr() {
+        return HEAPU32[(((this.ptr)+(16))>>2)];
+      }
+  
+      // Get pointer which is expected to be received by catch clause in C++ code. It may be adjusted
+      // when the pointer is casted to some of the exception object base classes (e.g. when virtual
+      // inheritance is used). When a pointer is thrown this method should return the thrown pointer
+      // itself.
+      get_exception_ptr() {
+        // Work around a fastcomp bug, this code is still included for some reason in a build without
+        // exceptions support.
+        var isPointer = ___cxa_is_pointer_type(this.get_type());
+        if (isPointer) {
+          return HEAPU32[((this.excPtr)>>2)];
+        }
+        var adjusted = this.get_adjusted_ptr();
+        if (adjusted !== 0) return adjusted;
+        return this.excPtr;
+      }
+    }
+  
+  var exceptionLast = 0;
+  
+  var uncaughtExceptionCount = 0;
+  var ___cxa_throw = (ptr, type, destructor) => {
+      var info = new ExceptionInfo(ptr);
+      // Initialize ExceptionInfo content after it was allocated in __cxa_allocate_exception.
+      info.init(type, destructor);
+      exceptionLast = ptr;
+      uncaughtExceptionCount++;
+      assert(false, 'Exception thrown, but exception catching is not enabled. Compile with -sNO_DISABLE_EXCEPTION_CATCHING or -sEXCEPTION_CATCHING_ALLOWED=[..] to catch.');
+    };
+
   var __abort_js = () => {
       abort('native code called abort()');
     };
@@ -1961,6 +2046,16 @@ function dbg(...args) {
       );
     };
 
+  var heap32VectorToArray = (count, firstElement) => {
+      var array = [];
+      for (var i = 0; i < count; i++) {
+        // TODO(https://github.com/emscripten-core/emscripten/issues/17310):
+        // Find a way to hoist the `>> 2` or `>> 3` out of this loop.
+        array.push(HEAPU32[(((firstElement)+(i * 4))>>2)]);
+      }
+      return array;
+    };
+  
   
   var runDestructors = (destructors) => {
       while (destructors.length) {
@@ -1969,6 +2064,11 @@ function dbg(...args) {
         del(ptr);
       }
     };
+  
+  
+  
+  
+  
   
   
   function usesDestructorStack(argTypes) {
@@ -2119,102 +2219,6 @@ function dbg(...args) {
     var invokerFn = newFunc(Function, args)(...closureArgs);
       return createNamedFunction(humanName, invokerFn);
     }
-  
-  
-  var heap32VectorToArray = (count, firstElement) => {
-      var array = [];
-      for (var i = 0; i < count; i++) {
-        // TODO(https://github.com/emscripten-core/emscripten/issues/17310):
-        // Find a way to hoist the `>> 2` or `>> 3` out of this loop.
-        array.push(HEAPU32[(((firstElement)+(i * 4))>>2)]);
-      }
-      return array;
-    };
-  
-  
-  
-  
-  
-  var getFunctionName = (signature) => {
-      signature = signature.trim();
-      const argsIndex = signature.indexOf("(");
-      if (argsIndex !== -1) {
-        assert(signature[signature.length - 1] == ")", "Parentheses for argument names should match.");
-        return signature.substr(0, argsIndex);
-      } else {
-        return signature;
-      }
-    };
-  var __embind_register_class_class_function = (rawClassType,
-                                            methodName,
-                                            argCount,
-                                            rawArgTypesAddr,
-                                            invokerSignature,
-                                            rawInvoker,
-                                            fn,
-                                            isAsync) => {
-      var rawArgTypes = heap32VectorToArray(argCount, rawArgTypesAddr);
-      methodName = readLatin1String(methodName);
-      methodName = getFunctionName(methodName);
-      rawInvoker = embind__requireFunction(invokerSignature, rawInvoker);
-      whenDependentTypesAreResolved([], [rawClassType], (classType) => {
-        classType = classType[0];
-        var humanName = `${classType.name}.${methodName}`;
-  
-        function unboundTypesHandler() {
-          throwUnboundTypeError(`Cannot call ${humanName} due to unbound types`, rawArgTypes);
-        }
-  
-        if (methodName.startsWith("@@")) {
-          methodName = Symbol[methodName.substring(2)];
-        }
-  
-        var proto = classType.registeredClass.constructor;
-        if (undefined === proto[methodName]) {
-          // This is the first function to be registered with this name.
-          unboundTypesHandler.argCount = argCount-1;
-          proto[methodName] = unboundTypesHandler;
-        } else {
-          // There was an existing function with the same name registered. Set up
-          // a function overload routing table.
-          ensureOverloadTable(proto, methodName, humanName);
-          proto[methodName].overloadTable[argCount-1] = unboundTypesHandler;
-        }
-  
-        whenDependentTypesAreResolved([], rawArgTypes, (argTypes) => {
-          // Replace the initial unbound-types-handler stub with the proper
-          // function. If multiple overloads are registered, the function handlers
-          // go into an overload table.
-          var invokerArgsArray = [argTypes[0] /* return value */, null /* no class 'this'*/].concat(argTypes.slice(1) /* actual params */);
-          var func = craftInvokerFunction(humanName, invokerArgsArray, null /* no class 'this'*/, rawInvoker, fn, isAsync);
-          if (undefined === proto[methodName].overloadTable) {
-            func.argCount = argCount-1;
-            proto[methodName] = func;
-          } else {
-            proto[methodName].overloadTable[argCount-1] = func;
-          }
-  
-          if (classType.registeredClass.__derivedClasses) {
-            for (const derivedClass of classType.registeredClass.__derivedClasses) {
-              if (!derivedClass.constructor.hasOwnProperty(methodName)) {
-                // TODO: Add support for overloads
-                derivedClass.constructor[methodName] = func;
-              }
-            }
-          }
-  
-          return [];
-        });
-        return [];
-      });
-    };
-
-  
-  
-  
-  
-  
-  
   var __embind_register_class_constructor = (
       rawClassType,
       argCount,
@@ -2259,6 +2263,16 @@ function dbg(...args) {
   
   
   
+  var getFunctionName = (signature) => {
+      signature = signature.trim();
+      const argsIndex = signature.indexOf("(");
+      if (argsIndex !== -1) {
+        assert(signature[signature.length - 1] == ")", "Parentheses for argument names should match.");
+        return signature.substr(0, argsIndex);
+      } else {
+        return signature;
+      }
+    };
   var __embind_register_class_function = (rawClassType,
                                       methodName,
                                       argCount,
@@ -2321,92 +2335,6 @@ function dbg(...args) {
   
           return [];
         });
-        return [];
-      });
-    };
-
-  
-  
-  
-  
-  
-  
-  
-  var validateThis = (this_, classType, humanName) => {
-      if (!(this_ instanceof Object)) {
-        throwBindingError(`${humanName} with invalid "this": ${this_}`);
-      }
-      if (!(this_ instanceof classType.registeredClass.constructor)) {
-        throwBindingError(`${humanName} incompatible with "this" of type ${this_.constructor.name}`);
-      }
-      if (!this_.$$.ptr) {
-        throwBindingError(`cannot call emscripten binding method ${humanName} on deleted object`);
-      }
-  
-      // todo: kill this
-      return upcastPointer(this_.$$.ptr,
-                           this_.$$.ptrType.registeredClass,
-                           classType.registeredClass);
-    };
-  var __embind_register_class_property = (classType,
-                                      fieldName,
-                                      getterReturnType,
-                                      getterSignature,
-                                      getter,
-                                      getterContext,
-                                      setterArgumentType,
-                                      setterSignature,
-                                      setter,
-                                      setterContext) => {
-      fieldName = readLatin1String(fieldName);
-      getter = embind__requireFunction(getterSignature, getter);
-  
-      whenDependentTypesAreResolved([], [classType], (classType) => {
-        classType = classType[0];
-        var humanName = `${classType.name}.${fieldName}`;
-        var desc = {
-          get() {
-            throwUnboundTypeError(`Cannot access ${humanName} due to unbound types`, [getterReturnType, setterArgumentType]);
-          },
-          enumerable: true,
-          configurable: true
-        };
-        if (setter) {
-          desc.set = () => throwUnboundTypeError(`Cannot access ${humanName} due to unbound types`, [getterReturnType, setterArgumentType]);
-        } else {
-          desc.set = (v) => throwBindingError(humanName + ' is a read-only property');
-        }
-  
-        Object.defineProperty(classType.registeredClass.instancePrototype, fieldName, desc);
-  
-        whenDependentTypesAreResolved(
-          [],
-          (setter ? [getterReturnType, setterArgumentType] : [getterReturnType]),
-        (types) => {
-          var getterReturnType = types[0];
-          var desc = {
-            get() {
-              var ptr = validateThis(this, classType, humanName + ' getter');
-              return getterReturnType['fromWireType'](getter(getterContext, ptr));
-            },
-            enumerable: true
-          };
-  
-          if (setter) {
-            setter = embind__requireFunction(setterSignature, setter);
-            var setterArgumentType = types[1];
-            desc.set = function(v) {
-              var ptr = validateThis(this, classType, humanName + ' setter');
-              var destructors = [];
-              setter(setterContext, ptr, setterArgumentType['toWireType'](destructors, v));
-              runDestructors(destructors);
-            };
-          }
-  
-          Object.defineProperty(classType.registeredClass.instancePrototype, fieldName, desc);
-          return [];
-        });
-  
         return [];
       });
     };
@@ -5739,6 +5667,8 @@ var wasmImports = {
   /** @export */
   __assert_fail: ___assert_fail,
   /** @export */
+  __cxa_throw: ___cxa_throw,
+  /** @export */
   _abort_js: __abort_js,
   /** @export */
   _embind_register_bigint: __embind_register_bigint,
@@ -5747,13 +5677,9 @@ var wasmImports = {
   /** @export */
   _embind_register_class: __embind_register_class,
   /** @export */
-  _embind_register_class_class_function: __embind_register_class_class_function,
-  /** @export */
   _embind_register_class_constructor: __embind_register_class_constructor,
   /** @export */
   _embind_register_class_function: __embind_register_class_function,
-  /** @export */
-  _embind_register_class_property: __embind_register_class_property,
   /** @export */
   _embind_register_emval: __embind_register_emval,
   /** @export */
@@ -5782,8 +5708,8 @@ var wasmImports = {
 var wasmExports = createWasm();
 var ___wasm_call_ctors = createExportWrapper('__wasm_call_ctors', 0);
 var ___getTypeName = createExportWrapper('__getTypeName', 1);
-var _malloc = Module['_malloc'] = createExportWrapper('malloc', 1);
 var _fflush = createExportWrapper('fflush', 1);
+var _malloc = Module['_malloc'] = createExportWrapper('malloc', 1);
 var _strerror = createExportWrapper('strerror', 1);
 var _free = Module['_free'] = createExportWrapper('free', 1);
 var _emscripten_stack_init = () => (_emscripten_stack_init = wasmExports['emscripten_stack_init'])();
@@ -5921,7 +5847,6 @@ var missingLibrarySymbols = [
   'makePromise',
   'idsToPromises',
   'makePromiseCallback',
-  'ExceptionInfo',
   'findMatchingCatch',
   'Browser_asyncPrepareDataCounter',
   'setMainLoop',
@@ -5963,6 +5888,7 @@ var missingLibrarySymbols = [
   'registerInheritedInstance',
   'unregisterInheritedInstance',
   'enumReadValueFromPointer',
+  'validateThis',
   'getStringOrSymbol',
   'emval_get_global',
   'emval_returnValue',
@@ -6054,6 +5980,7 @@ var unexportedSymbols = [
   'uncaughtExceptionCount',
   'exceptionLast',
   'exceptionCaught',
+  'ExceptionInfo',
   'Browser',
   'getPreloadedImageData__data',
   'wget',
@@ -6157,7 +6084,6 @@ var unexportedSymbols = [
   'shallowCopyInternalPointer',
   'downcastPointer',
   'upcastPointer',
-  'validateThis',
   'char_0',
   'char_9',
   'makeLegalFunctionName',
