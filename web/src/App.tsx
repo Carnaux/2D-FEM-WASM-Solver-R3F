@@ -86,13 +86,13 @@ function App() {
     module._free(elementDataHeapSpace);
 
     FEMSolver.ProcessData();
-
+    FEMSolver.Solve();
     // Setup initial model
     // Nodes = 'coord_x', 'coord_y', 'disp_x', 'disp_y', 'load_x', 'load_y'
     // let data_nodes = [
-    //   [0, 0, 0, 0, undefined, undefined],
-    //   [20, 0, undefined, 0, 0, undefined],
-    //   [0, 20, undefined, undefined, 500, 0],
+    //   [0,  0,         0,        0, undefined, undefined],
+    //   [20, 0, undefined,        0,         0, undefined],
+    //   [0, 20, undefined, undefined,      500,         0],
     // ];
     // Elements = 'start', 'end', 'area', 'material'
     // let data_elements = [
