@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "em_source": "source /Users/danielfernandes/Desktop/Lab/emsdk/emsdk_env.sh",
-    "build": "./build.sh"
+    "build": "clear && ./build.sh"
   },
   "browserslist": {
     "production": [

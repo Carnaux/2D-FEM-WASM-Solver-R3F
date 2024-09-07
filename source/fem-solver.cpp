@@ -23,7 +23,9 @@ public:
     {
         nNodes = _nNodes;
         nElements = _nElements;
+        N = _nNodes;
 
+        Results.resize(_nNodes, std::vector<double>(6.0, 0.0));
         nodeInputData.resize(_nNodes, std::vector<float>(6.0, 0.0));
         nodeInputDataUnknowns.resize(_nNodes, std::vector<float>(6.0, 0.0));
 
@@ -132,6 +134,22 @@ public:
                         Pk.push_back(nodeInputData[i][j]);
                     }
                 }
+            }
+        }
+
+        for (int i = 0; i < Uun.size(); i++)
+        {
+            if (!Uun[i])
+            {
+                Ak.push_back(i);
+            }
+        }
+
+        for (int i = 0; i < Pun.size(); i++)
+        {
+            if (!Pun[i])
+            {
+                Bk.push_back(i);
             }
         }
     }
@@ -246,10 +264,10 @@ public:
         }
     }
 
-    std::vector<std::vector<float>> Partition(std::vector<int> X, std::vector<int> Y)
+    std::vector<std::vector<double>> Partition(std::vector<int> X, std::vector<int> Y)
     {
-        std::vector<std::vector<float>> out;
-        out.resize(X.size(), std::vector<float>(Y.size(), 0.0));
+        std::vector<std::vector<double>> out;
+        out.resize(X.size(), std::vector<double>(Y.size(), 0.0));
         for (int i = 0; i < X.size(); i++)
         {
             for (int j = 0; j < Y.size(); j++)
@@ -261,34 +279,318 @@ public:
         return out;
     }
 
-    void Solve()
+    uintptr_t Solve()
     {
-        // Solve Displacements
-        std::vector<std::vector<float>> KAB_Uk = Multiply(KAB, Uk);
-        printf("Size KAB_Uk: %i \n", KAB_Uk.size());
-        // UA = np.dot(np.linalg.inv(KAA), (PA - np.dot(KAB, UB)))
+        // printMatrixFloat("input data", nodeInputData);
+        // printMatrixFloat("unknowns data", nodeInputDataUnknowns);
 
-        // PB = np.dot(KBA, UA) + np.dot(KBB, UB)
+        // Solve Displacements
+        std::vector<double> KAB_Uk = SumProduct(KAB, Uk);
+        // printVector("KAB_Uk", KAB_Uk);
+
+        std::vector<double> Diff = DiffVectors(Pk, KAB_Uk);
+        // printVector("Diff", Diff);
+
+        std::vector<std::vector<double>> invKAA(N, std::vector<double>(N));
+        inverse(KAA, invKAA);
+        // printMatrix("invKAA", invKAA);
+
+        UA = SumProduct(invKAA, Diff);
+        // printVector("UA", UA);
+        // printMatrix("KBA", KBA);
+
+        std::vector<double> KBB_Uk = SumProduct(KBB, Uk);
+        std::vector<double> KBA_UA = SumProductFlip(KBA, UA);
+        // printVector("KBB_Uk", KBB_Uk);
+        // printVector("KBA_UA", KBA_UA);
+
+        PB = SumVectors(KBA_UA, KBB_Uk);
+        // printVector("SUM", PB);
+
+        // printVector("Uk", Uk);
+        // printVector("Pk", Pk);
+        // printVector("Uun", Uun);
+        // printVector("Pun", Pun);
+
+        // printVectorInt("A", A);
+        // printVectorInt("B", B);
+        // printVectorInt("Ak", Ak);
+        // printVectorInt("Bk", Bk);
+
+        std::vector<double> SolvedDisplacements(Uun.size(), 0);
+        std::vector<double> SolvedLoads(Pun.size(), 0);
+
+        for (int i = 0; i < Uk.size(); ++i)
+        {
+            SolvedDisplacements[Ak[i]] = Uk[i];
+        }
+        for (int i = 0; i < A.size(); ++i)
+        {
+            SolvedDisplacements[A[i]] = UA[i];
+        }
+
+        for (int i = 0; i < Pk.size(); ++i)
+        {
+            SolvedLoads[Bk[i]] = Pk[i];
+        }
+        for (int i = 0; i < B.size(); ++i)
+        {
+            SolvedLoads[B[i]] = PB[i];
+        }
+
+        // printVector("Solved Displacements", SolvedDisplacements);
+        // printVector("Solved Loads", SolvedLoads);
+
+        std::vector<float> resultsFlat(nNodes * 6, 0);
+
+        for (int i = 0; i < nNodes; ++i)
+        {
+            Results[i][2] = SolvedDisplacements[(i * 2)];
+            Results[i][3] = SolvedDisplacements[(i * 2 + 1)];
+
+            Results[i][4] = SolvedLoads[(i * 2)];
+            Results[i][5] = SolvedLoads[(i * 2 + 1)];
+
+            for (int j = 0; j < 6; ++j)
+            {
+                if (!nodeInputDataUnknowns[i][j])
+                {
+                    Results[i][j] = nodeInputData[i][j];
+                }
+
+                resultsFlat[(i * 6) + j] = Results[i][j];
+            }
+        }
+
+        // printVectorFloat("Results flat", resultsFlat);
+        // printMatrix("\nResults", Results);
+
+        auto a = uintptr_t(&resultsFlat[0]);
+        return a;
     }
 
-    std::vector<std::vector<float>> Multiply(std::vector<std::vector<float>> a, std::vector<float> b)
+    // C++ version of np.dot in the case of "N-D array and b is a 1-D array"
+    std::vector<double> SumProduct(std::vector<std::vector<double>> a, std::vector<double> b)
     {
         int n = a.size();
         int m = a[0].size();
         int p = b.size();
 
-        std::vector<std::vector<float>> c(n, std::vector<float>(p, 0));
-        for (int j = 0; j < p; ++j)
+        std::vector<double> c(n, 0);
+        for (int i = 0; i < p; ++i)
         {
-            for (int k = 0; k < m; ++k)
+            for (int j = 0; j < m; ++j)
             {
-                for (int i = 0; i < n; ++i)
+                c[i] += a[j][i] * b[j];
+            }
+        }
+
+        return c;
+    }
+
+    std::vector<double> SumProductFlip(std::vector<std::vector<double>> a, std::vector<double> b)
+    {
+        int n = a.size();
+        int m = a[0].size();
+        int p = b.size();
+
+        std::vector<double> c(n, 0);
+        for (int i = 0; i < p; ++i)
+        {
+            for (int j = 0; j < m; ++j)
+            {
+                c[i] += a[i][j] * b[j];
+            }
+        }
+
+        return c;
+    }
+
+    std::vector<double> DiffVectors(std::vector<double> a, std::vector<double> b)
+    {
+        std::vector<double> diff(a.size(), 0);
+        for (int i = 0; i < a.size(); i++)
+        {
+            diff[i] = a[i] - b[i];
+        }
+
+        return diff;
+    }
+
+    std::vector<double> SumVectors(std::vector<double> a, std::vector<double> b)
+    {
+        std::vector<double> sum(a.size(), 0);
+        for (int i = 0; i < a.size(); i++)
+        {
+            sum[i] = a[i] + b[i];
+        }
+
+        return sum;
+    }
+
+    void getCofactor(const std::vector<std::vector<double>> &A, std::vector<std::vector<double>> &temp, int p, int q, int n)
+    {
+        int i = 0, j = 0;
+
+        // Looping for each element of the matrix
+        for (int row = 0; row < n; row++)
+        {
+            for (int col = 0; col < n; col++)
+            {
+                // Copying into temporary matrix only those
+                // element which are not in given row and column
+                if (row != p && col != q)
                 {
-                    c[i][j] += a[i][k] * b[k][j];
+                    temp[i][j++] = A[row][col];
+
+                    // Row is filled, so increase row index and
+                    // reset col index
+                    if (j == n - 1)
+                    {
+                        j = 0;
+                        i++;
+                    }
                 }
             }
         }
-        return c;
+    }
+
+    float determinant(const std::vector<std::vector<double>> &A, int n)
+    {
+        float D = 0.0; // Initialize result
+
+        // Base case : if matrix contains single element
+        if (n == 1)
+            return A[0][0];
+
+        std::vector<std::vector<double>> temp(
+            N, std::vector<double>(N)); // To store cofactors
+
+        int sign = 1; // To store sign multiplier
+
+        // Iterate for each element of first row
+        for (int f = 0; f < n; f++)
+        {
+            // Getting Cofactor of A[0][f]
+            getCofactor(A, temp, 0, f, n);
+            D += sign * A[0][f] * determinant(temp, n - 1);
+
+            // terms are to be added with alternate sign
+            sign = -sign;
+        }
+
+        // printf("determinant: %f\n", D);
+
+        return D;
+    }
+
+    void adjoint(const std::vector<std::vector<double>> &A, std::vector<std::vector<double>> &adj)
+    {
+        if (N == 1)
+        {
+            adj[0][0] = 1;
+            return;
+        }
+
+        // temp is used to store cofactors of A[][]
+        int sign = 1;
+        std::vector<std::vector<double>> temp(N, std::vector<double>(N));
+
+        for (int i = 0; i < N; i++)
+        {
+            for (int j = 0; j < N; j++)
+            {
+                // Get cofactor of A[i][j]
+                getCofactor(A, temp, i, j, N);
+
+                // sign of adj[j][i] positive if sum of row
+                // and column indexes is even.
+                sign = ((i + j) % 2 == 0) ? 1 : -1;
+
+                // Interchanging rows and columns to get the
+                // transpose of the cofactor matrix
+                adj[j][i] = (sign) * (determinant(temp, N - 1));
+            }
+        }
+    }
+
+    bool inverse(const std::vector<std::vector<double>> &A, std::vector<std::vector<double>> &inv)
+    {
+        // Find determinant of A[][]
+        int det = determinant(A, N);
+        if (det == 0)
+        {
+            printf("Singular matrix, can't find its inverse\n");
+            return false;
+        }
+
+        // Find adjoint
+        std::vector<std::vector<double>> adj(N, std::vector<double>(N));
+        adjoint(A, adj);
+
+        // Find Inverse using formula "inverse(A) =
+        // adj(A)/det(A)"
+        for (int i = 0; i < N; i++)
+            for (int j = 0; j < N; j++)
+                inv[i][j] = adj[i][j] / float(det);
+
+        return true;
+    }
+
+    void printVector(std::string name, std::vector<double> vec)
+    {
+        printf("Displaying %s\n", name.c_str());
+        for (int i = 0; i < vec.size(); i++)
+        {
+            printf(" %.9f ", vec[i]);
+        }
+        printf("\n");
+    }
+
+    void printVectorFloat(std::string name, std::vector<float> vec)
+    {
+        printf("Displaying %s\n", name.c_str());
+        for (int i = 0; i < vec.size(); i++)
+        {
+            printf(" %.9f ", vec[i]);
+        }
+        printf("\n");
+    }
+
+    void printVectorInt(std::string name, std::vector<int> vec)
+    {
+        printf("Displaying %s\n", name.c_str());
+        for (int i = 0; i < vec.size(); i++)
+        {
+            printf(" %i ", vec[i]);
+        }
+        printf("\n");
+    }
+
+    void printMatrix(std::string name, std::vector<std::vector<double>> mat)
+    {
+        printf("Displaying %s\n", name.c_str());
+        for (int i = 0; i < mat.size(); i++)
+        {
+            for (int j = 0; j < mat[0].size(); j++)
+            {
+                printf(" %ix%i: %.9f,", i, j, mat[i][j]);
+            }
+            printf("\n");
+        }
+    }
+
+    void printMatrixFloat(std::string name, std::vector<std::vector<float>> mat)
+    {
+        printf("Displaying %s\n", name.c_str());
+        for (int i = 0; i < mat.size(); i++)
+        {
+            for (int j = 0; j < mat[0].size(); j++)
+            {
+                printf(" %ix%i: %.9f,", i, j, mat[i][j]);
+            }
+            printf("\n");
+        }
     }
 
 private:
@@ -300,17 +602,27 @@ private:
     std::vector<std::vector<float>> K;
     std::vector<Element> elements;
 
-    std::vector<float> Uun;
-    std::vector<float> Pun;
-    std::vector<float> Uk;
-    std::vector<float> Pk;
+    std::vector<double> Uun;
+    std::vector<double> Pun;
+    std::vector<double> Uk;
+    std::vector<double> Pk;
     std::vector<int> A;
     std::vector<int> B;
+    std::vector<int> Ak;
+    std::vector<int> Bk;
 
-    std::vector<std::vector<float>> KAA;
-    std::vector<std::vector<float>> KAB;
-    std::vector<std::vector<float>> KBA;
-    std::vector<std::vector<float>> KBB;
+    std::vector<std::vector<double>> KAA;
+    std::vector<std::vector<double>> KAB;
+    std::vector<std::vector<double>> KBA;
+    std::vector<std::vector<double>> KBB;
+
+    std::vector<std::vector<double>> invKAA;
+    int N;
+
+    std::vector<double> UA;
+    std::vector<double> PB;
+
+    std::vector<std::vector<double>> Results;
 };
 
 // Binding code
@@ -321,6 +633,6 @@ EMSCRIPTEN_BINDINGS(FemSolver)
         .function("SetSizes", &FEMSolver::SetSizes)
         .function("SetNodeInputData", &FEMSolver::SetNodeInputData)
         .function("SetElementInputData", &FEMSolver::SetElementInputData)
-
-        .function("ProcessData", &FEMSolver::ProcessData);
+        .function("ProcessData", &FEMSolver::ProcessData)
+        .function("Solve", &FEMSolver::Solve, return_value_policy::take_ownership());
 }

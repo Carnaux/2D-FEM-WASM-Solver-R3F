@@ -86,7 +86,15 @@ function App() {
     module._free(elementDataHeapSpace);
 
     FEMSolver.ProcessData();
-    FEMSolver.Solve();
+
+    const heap = FEMSolver.Solve();
+    const arrayData = [];
+    for (let v = 0; v < nodeData.length; v++) {
+      arrayData.push(module.HEAPF32[heap / Float32Array.BYTES_PER_ELEMENT + v]);
+    }
+
+    console.log("SOLUTION", arrayData);
+
     // Setup initial model
     // Nodes = 'coord_x', 'coord_y', 'disp_x', 'disp_y', 'load_x', 'load_y'
     // let data_nodes = [
