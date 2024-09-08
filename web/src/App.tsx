@@ -1,14 +1,5 @@
 import "./styles/App.css";
-import {
-  Grid,
-  OrbitControls,
-  Environment,
-  useGLTF,
-  Stage,
-  AccumulativeShadows,
-  RandomizedLight,
-  Center,
-} from "@react-three/drei";
+import { Grid, OrbitControls, Environment } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import {
   EffectComposer,
@@ -19,10 +10,13 @@ import { SuspensionArm } from "./components/SuspensionArm";
 
 import * as WASM from "./wasm/fem-solver";
 import { useEffect, useState } from "react";
+import { NodeComponent } from "./components/3DComponents/NodeComponent";
+import { AxesHelper } from "./components/3DComponents/AxesHelper";
 
 function App() {
+  const [selected, setSelected] = useState("");
   const [wasmModule, setWasmModule] = useState<any>(null);
-  useGLTF.preload("/models/front_upper_susp-arm.glb");
+  // useGLTF.preload("/models/front_upper_susp-arm.glb");
 
   const loadWasmModule = async () => {
     console.log("Loading WASM module...");
@@ -116,11 +110,20 @@ function App() {
     }
   }, [wasmModule]);
 
+  const HandleMissClick = (e: any) => {
+    setSelected("");
+  };
+
   return (
     <>
       {wasmModule && (
-        <Canvas flat shadows camera={{ position: [10, 10, 10], fov: 25 }}>
-          <fog attach="fog" args={["black", 15, 40]} />
+        <Canvas
+          flat
+          shadows
+          camera={{ position: [10, 10, 10], fov: 25 }}
+          onPointerMissed={HandleMissClick}
+        >
+          <fog attach="fog" args={["black", 15, 60]} />
           <Grid
             renderOrder={-1}
             position={[0, 0, 0]}
@@ -130,6 +133,7 @@ function App() {
             sectionSize={3.3}
             sectionThickness={1.5}
             fadeDistance={31}
+            rotation={[Math.PI / 2, 0, 0]}
           />
           <OrbitControls
             makeDefault
@@ -137,16 +141,24 @@ function App() {
             enablePan={false}
             maxDistance={30}
             minDistance={5}
-            maxPolarAngle={Math.PI / 2.2}
-            minPolarAngle={Math.PI / 4}
+            maxPolarAngle={Math.PI / 1.5}
+            minPolarAngle={Math.PI / 3}
+            maxAzimuthAngle={Math.PI / 5}
+            minAzimuthAngle={-Math.PI / 5}
           />
           <EffectComposer>
-            <Bloom luminanceThreshold={2} mipmapBlur />
+            <Bloom luminanceThreshold={2} mipmapBlur intensity={0.1} />
             <ToneMapping />
           </EffectComposer>
           <Environment background preset="sunset" blur={0.85} />
+          <AxesHelper />
+          <NodeComponent
+            name={"node1"}
+            selected={selected}
+            setSelected={setSelected}
+          />
 
-          <group>
+          {/* <group>
             <SuspensionArm
               name={"susArm"}
               position={[0, 0.5, 0]}
@@ -170,7 +182,7 @@ function App() {
                 bias={0.001}
               />
             </AccumulativeShadows>
-          </group>
+          </group> */}
         </Canvas>
       )}
     </>
