@@ -1,4 +1,4 @@
-import "../styles/Intro.css";
+import "../styles/Intro.scss";
 
 export const Intro = (props: any) => {
   return (

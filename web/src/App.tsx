@@ -1,22 +1,25 @@
-import "./styles/App.css";
+import "./styles/App.scss";
 import { Grid, OrbitControls, Environment } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import {
   EffectComposer,
   Bloom,
   ToneMapping,
+  Outline,
 } from "@react-three/postprocessing";
-import { SuspensionArm } from "./components/SuspensionArm";
 
 import * as WASM from "./wasm/fem-solver";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { NodeComponent } from "./components/3DComponents/NodeComponent";
 import { AxesHelper } from "./components/3DComponents/AxesHelper";
+import { dummySelection } from "./types";
+import { useStore } from "./store/Store";
+import { ACTION_TRIGGERS } from "./store/ActionTriggers";
 
-function App() {
-  const [selected, setSelected] = useState("");
+function App({ selected, setSelected, outlineHover, setOutlineHover }: any) {
+  const addAction = useStore((store) => store.addAction);
   const [wasmModule, setWasmModule] = useState<any>(null);
-  // useGLTF.preload("/models/front_upper_susp-arm.glb");
+  const [nodes3d, setNodes3d] = useState<any>([]);
 
   const loadWasmModule = async () => {
     console.log("Loading WASM module...");
@@ -111,8 +114,48 @@ function App() {
   }, [wasmModule]);
 
   const HandleMissClick = (e: any) => {
-    setSelected("");
+    setSelected([dummySelection]);
   };
+
+  const AddNode3d = useCallback(() => {
+    const newNodeIndex = nodes3d.length + 1;
+
+    const name = `node${newNodeIndex}`;
+    const newNode = (
+      <NodeComponent
+        name={name}
+        selected={selected}
+        setSelected={setSelected}
+        outlineHover={outlineHover}
+        setOutlineHover={setOutlineHover}
+        key={name}
+      />
+    );
+    setNodes3d([...nodes3d, newNode]);
+  }, [nodes3d, selected, setSelected, outlineHover, setOutlineHover]);
+
+  useEffect(() => {
+    addAction({
+      trigger: ACTION_TRIGGERS.ADD_NODE,
+      target: "app",
+      cb: (e: any) => {
+        AddNode3d();
+      },
+    });
+  }, [
+    addAction,
+    AddNode3d,
+    nodes3d,
+    selected,
+    setSelected,
+    outlineHover,
+    setOutlineHover,
+  ]);
+
+  useEffect(() => {
+    console.log("Selected");
+    console.dir(selected);
+  }, [selected]);
 
   return (
     <>
@@ -128,9 +171,9 @@ function App() {
             renderOrder={-1}
             position={[0, 0, 0]}
             infiniteGrid
-            cellSize={0.6}
+            cellSize={0.2}
             cellThickness={0.6}
-            sectionSize={3.3}
+            sectionSize={1}
             sectionThickness={1.5}
             fadeDistance={31}
             rotation={[Math.PI / 2, 0, 0]}
@@ -146,43 +189,22 @@ function App() {
             maxAzimuthAngle={Math.PI / 5}
             minAzimuthAngle={-Math.PI / 5}
           />
-          <EffectComposer>
+          <EffectComposer autoClear={false}>
             <Bloom luminanceThreshold={2} mipmapBlur intensity={0.1} />
             <ToneMapping />
+            <Outline
+              selection={outlineHover} // selection of objects that will be outlined
+              selectionLayer={10} // selection layer
+              edgeStrength={100} // the edge strength
+              pulseSpeed={0.0} // a pulse speed. A value of zero disables the pulse effect
+              visibleEdgeColor={0xffffff} // the color of visible edges
+              hiddenEdgeColor={0xffffff} // the color of hidden edges
+              blur={false} // whether the outline should be blurred
+            />
           </EffectComposer>
           <Environment background preset="sunset" blur={0.85} />
           <AxesHelper />
-          <NodeComponent
-            name={"node1"}
-            selected={selected}
-            setSelected={setSelected}
-          />
-
-          {/* <group>
-            <SuspensionArm
-              name={"susArm"}
-              position={[0, 0.5, 0]}
-              scale={[0.05, 0.05, 0.05]}
-            />
-
-            <AccumulativeShadows
-              temporal
-              frames={80}
-              toneMapped={true}
-              alphaTest={0.75}
-              opacity={1}
-              scale={10}
-            >
-              <RandomizedLight
-                intensity={Math.PI}
-                amount={8}
-                radius={4}
-                ambient={0.5}
-                position={[5, 5, -10]}
-                bias={0.001}
-              />
-            </AccumulativeShadows>
-          </group> */}
+          {nodes3d}
         </Canvas>
       )}
     </>
