@@ -21,18 +21,22 @@
 .outlinerContainer {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
+  width: calc(100% - 10px);
   height: 200px;
+  border-style: solid;
+  // border-width: 1px;
+  border-radius: 5px;
+  border-color: #959595;
+  margin: 5px;
 }
+
 .infoContainer {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
   height: calc(100% - 260px);
-  width: 100%;
+  width: calc(100% - 10px);
+  border-style: solid;
+  // border-width: 1px;
+  border-radius: 5px;
+  border-color: #959595;
 }
 
 .buttonsContainer {

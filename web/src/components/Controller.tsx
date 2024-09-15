@@ -1,13 +1,29 @@
 import { ACTION_TRIGGERS } from "../store/ActionTriggers";
 import { useStore } from "../store/Store";
-import "../styles/Controller.scss";
+import { ControllerProps } from "../types";
 import { NodeInfo } from "./NodeInfo";
-export const Controller = ({ selected, setSelected }: any) => {
+
+import "../styles/Controller.scss";
+import { Outliner } from "./Outliner";
+
+export const Controller = ({
+  selected,
+  setSelected,
+  nodes3d,
+  setNodes3d,
+}: ControllerProps) => {
   const triggerAction = useStore((store) => store.triggerAction);
 
   return (
     <div className="controllerContainer">
-      <div className="outlinerContainer"></div>
+      <div className="outlinerContainer">
+        <Outliner
+          selected={selected}
+          setSelected={setSelected}
+          nodes3d={nodes3d}
+          setNodes3d={setNodes3d}
+        />
+      </div>
       <div className="infoContainer">
         {selected[selected.length - 1].type === "node" && (
           <NodeInfo selected={selected[selected.length - 1]} />

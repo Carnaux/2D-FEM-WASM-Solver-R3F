@@ -14,11 +14,11 @@ export const AxesHelper = () => {
         <meshBasicMaterial color={new Color(0, 255, 0)} />
       </mesh> */}
       <Line
-        points={[new Vector3(0, 0, 0), new Vector3(2, 0, 0)]}
+        points={[new Vector3(0, 0, 0), new Vector3(1, 0, 0)]}
         color={new Color(255, 0, 0)}
       />
       <Line
-        points={[new Vector3(0, 0, 0), new Vector3(0, 2, 0)]}
+        points={[new Vector3(0, 0, 0), new Vector3(0, 1, 0)]}
         color={new Color(0, 255, 0)}
       />
     </>

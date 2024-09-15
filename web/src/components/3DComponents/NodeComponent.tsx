@@ -1,8 +1,10 @@
-import { TransformControls, useSelect } from "@react-three/drei";
-import { useEffect, useRef, useState } from "react";
-import { Mesh } from "three";
+import { PivotControls, TransformControls, useSelect } from "@react-three/drei";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Group, Mesh, Quaternion, Vector3 } from "three";
 import { ACTION_TRIGGERS } from "../../store/ActionTriggers";
 import { useStore } from "../../store/Store";
+import { useFrame } from "@react-three/fiber";
+import { dummySelection, NodeComponentProps } from "../../types";
 
 export const NodeComponent = ({
   name,
@@ -10,24 +12,43 @@ export const NodeComponent = ({
   setSelected,
   outlineHover,
   setOutlineHover,
-}: any) => {
+}: NodeComponentProps) => {
   const addAction = useStore((store) => store.addAction);
-  const [locallySelected, setLocallySelected] = useState(false);
-  const nodeRef = useRef<Mesh>(null);
+  const triggerAction = useStore((store) => store.triggerAction);
 
-  const HandleSelection = (e: any) => {
-    if (selected.length < 3) {
-      // TODO - Multiple selection
-      const newSelection = [...selected, { name: name, type: "node" }];
-      setSelected([{ name: name, type: "node" }]);
-      setLocallySelected(true);
-    }
+  const nodeRef = useRef<Mesh>(null);
+  const [locallySelected, setLocallySelected] = useState<boolean>(false);
+  const [positionState, setPositionState] = useState<Vector3>(new Vector3());
+
+  // Manage selection
+  const HandleSelection = () => {
+    setSelected([{ name: name, type: "node", pos: positionState }]);
+
+    setLocallySelected(true);
   };
 
+  const HandleSelectionFromOutliner = (
+    outlinerName: string,
+    outlinerPos: Vector3
+  ) => {
+    setSelected([{ name: outlinerName, type: "node", pos: outlinerPos }]);
+
+    setLocallySelected(true);
+  };
+
+  // Manages hover 3Doutline
   const HandleHover = (e: any, type: string) => {
+    if (locallySelected) return;
+
     if (type === "in") {
-      setOutlineHover([...outlineHover, nodeRef]);
+      const findNode = outlineHover.find(
+        (item: any) => item.current.name === name
+      );
+      if (!findNode) {
+        setOutlineHover([...outlineHover, nodeRef]);
+      }
     }
+
     if (type === "out" && !locallySelected) {
       const newOutlineHover = outlineHover.filter(
         (item: any) => item.current.name !== name
@@ -36,36 +57,53 @@ export const NodeComponent = ({
     }
   };
 
+  // Manage selection outside changes
   useEffect(() => {
-    selected.forEach((item: any) => {
-      console.log("item", item);
-      if (item.name == name) {
-        console.log("Setting locally selected");
-        setLocallySelected(true);
-      } else {
-        console.log("Setting locally DEselected");
-        setLocallySelected(false);
-        const newOutlineHover = outlineHover.filter(
-          (item: any) => item.current.name !== name
-        );
-        setOutlineHover(newOutlineHover);
-      }
+    const findNode = selected.find((item: any) => item.name === name);
+
+    if (findNode) {
+      setLocallySelected(true);
+      setOutlineHover([nodeRef]);
+    } else {
+      setLocallySelected(false);
+    }
+  }, [selected, name]);
+
+  //Manage selection from outliner
+  useEffect(() => {
+    addAction({
+      trigger: ACTION_TRIGGERS.OUTLINER_SELECT,
+      target: `${name}`,
+      cb: (e: any) => {
+        HandleSelectionFromOutliner(e.name, positionState);
+      },
     });
-  }, [selected, name, outlineHover, setOutlineHover]);
+  }, [HandleSelection, name, positionState]);
 
   return (
     <>
-      <TransformControls
-        mode="translate"
-        showX={locallySelected}
-        showY={locallySelected}
-        showZ={false}
-        enabled={locallySelected}
+      <PivotControls
+        activeAxes={[true, true, false]}
+        disableRotations={true}
+        disableScaling={true}
+        visible={locallySelected}
+        onDrag={(l) => {
+          const position = new Vector3();
+          const scale = new Vector3();
+          const quaternion = new Quaternion();
+          l.decompose(position, quaternion, scale);
+          setPositionState(position);
+          triggerAction(
+            ACTION_TRIGGERS.UPDATE_POS_OUTLINER,
+            "NodeInfo",
+            position
+          );
+        }}
       >
         <mesh
           scale={[0.2, 0.2, 0.2]}
           name={name}
-          onClick={HandleSelection}
+          onClick={(e) => HandleSelection()}
           ref={nodeRef}
           onPointerEnter={(e) => HandleHover(e, "in")}
           onPointerLeave={(e) => HandleHover(e, "out")}
@@ -73,7 +111,7 @@ export const NodeComponent = ({
           <sphereGeometry />
           <meshStandardMaterial />
         </mesh>
-      </TransformControls>
+      </PivotControls>
     </>
   );
 };

@@ -1,4 +1,6 @@
 export enum ACTION_TRIGGERS {
   "ADD_NODE",
   "MISS_CLICK",
+  "UPDATE_POS_OUTLINER",
+  "OUTLINER_SELECT",
 }

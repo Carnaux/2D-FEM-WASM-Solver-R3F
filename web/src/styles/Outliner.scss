@@ -1,0 +1,76 @@
+.outliner {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
+.nodeItem {
+  width: fit-content;
+  border-bottom: solid 1px #ffffff;
+}
+
+.elementItem {
+  width: fit-content;
+  border-bottom: solid 1px #f5f5f5;
+}
+
+.nodeItem:hover {
+  cursor: pointer;
+  border-bottom: solid 1px var(--color-accent);
+}
+
+.elementItem:hover {
+  cursor: pointer;
+  border-bottom: solid 1px var(--color-accent-subLesson);
+}
+
+.nodeItemList {
+  padding-left: 20px;
+  margin-bottom: 0;
+  margin-top: 5px;
+
+  li::marker {
+    color: black;
+  }
+
+  li:hover::marker {
+    color: var(--color-accent);
+  }
+
+  .nodeActive::marker {
+    color: var(--color-accent);
+  }
+
+  .nodeFinished::marker {
+    color: var(--color-finished) !important;
+  }
+}
+
+.elementItemList {
+  padding-left: 15px;
+  margin-bottom: 0;
+
+  li:hover::marker {
+    color: var(--color-accent);
+  }
+
+  .elementActive::marker {
+    color: var(--color-accent);
+  }
+
+  .elementFinished::marker {
+    color: var(--color-finished) !important;
+  }
+}
+
+.nodeActive {
+  background-color: var(--color-accent-highlight);
+  border-bottom: solid 1px var(--color-accent-border);
+}
+
+.elementActive {
+  background-color: rgba(183, 51, 132, 0.1);
+  border-bottom: solid 1px var(--color-accent-subLesson);
+}

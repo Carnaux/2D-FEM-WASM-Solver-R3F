@@ -12,15 +12,22 @@ import * as WASM from "./wasm/fem-solver";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NodeComponent } from "./components/3DComponents/NodeComponent";
 import { AxesHelper } from "./components/3DComponents/AxesHelper";
-import { dummySelection } from "./types";
+import { AppProps, dummySelection } from "./types";
 import { useStore } from "./store/Store";
 import { ACTION_TRIGGERS } from "./store/ActionTriggers";
 
-function App({ selected, setSelected, outlineHover, setOutlineHover }: any) {
+function App({
+  selected,
+  setSelected,
+  outlineHover,
+  setOutlineHover,
+  nodes3d,
+  setNodes3d,
+}: AppProps) {
   const addAction = useStore((store) => store.addAction);
   const [wasmModule, setWasmModule] = useState<any>(null);
-  const [nodes3d, setNodes3d] = useState<any>([]);
 
+  // Run WASM module
   const loadWasmModule = async () => {
     console.log("Loading WASM module...");
     const module = await WASM.default();
@@ -107,55 +114,44 @@ function App({ selected, setSelected, outlineHover, setOutlineHover }: any) {
     // ];
   };
 
+  // Load WASM module on first render
   useEffect(() => {
     if (!wasmModule) {
       loadWasmModule();
     }
   }, [wasmModule]);
 
+  // Handle miss click
   const HandleMissClick = (e: any) => {
     setSelected([dummySelection]);
+    setOutlineHover([]);
   };
 
-  const AddNode3d = useCallback(() => {
-    const newNodeIndex = nodes3d.length + 1;
-
-    const name = `node${newNodeIndex}`;
-    const newNode = (
-      <NodeComponent
-        name={name}
-        selected={selected}
-        setSelected={setSelected}
-        outlineHover={outlineHover}
-        setOutlineHover={setOutlineHover}
-        key={name}
-      />
-    );
-    setNodes3d([...nodes3d, newNode]);
-  }, [nodes3d, selected, setSelected, outlineHover, setOutlineHover]);
-
+  // Create new node reference
   useEffect(() => {
     addAction({
       trigger: ACTION_TRIGGERS.ADD_NODE,
       target: "app",
       cb: (e: any) => {
-        AddNode3d();
+        // TODO better data management + store
+        const newNodeIndex = nodes3d.length + 1;
+        const name = `node${newNodeIndex}`;
+
+        const newNode = {
+          name: name,
+        };
+
+        setNodes3d([...nodes3d, newNode]);
       },
     });
   }, [
     addAction,
-    AddNode3d,
     nodes3d,
     selected,
     setSelected,
     outlineHover,
     setOutlineHover,
   ]);
-
-  useEffect(() => {
-    console.log("Selected");
-    console.dir(selected);
-  }, [selected]);
 
   return (
     <>
@@ -165,6 +161,7 @@ function App({ selected, setSelected, outlineHover, setOutlineHover }: any) {
           shadows
           camera={{ position: [10, 10, 10], fov: 25 }}
           onPointerMissed={HandleMissClick}
+          gl={{ antialias: true }}
         >
           <fog attach="fog" args={["black", 15, 60]} />
           <Grid
@@ -204,7 +201,16 @@ function App({ selected, setSelected, outlineHover, setOutlineHover }: any) {
           </EffectComposer>
           <Environment background preset="sunset" blur={0.85} />
           <AxesHelper />
-          {nodes3d}
+          {nodes3d.map((NodeData: any, index: any) => (
+            <NodeComponent
+              name={NodeData.name}
+              selected={selected}
+              setSelected={setSelected}
+              outlineHover={outlineHover}
+              setOutlineHover={setOutlineHover}
+              key={NodeData.name}
+            />
+          ))}
         </Canvas>
       )}
     </>

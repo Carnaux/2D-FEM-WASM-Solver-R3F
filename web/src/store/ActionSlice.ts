@@ -3,11 +3,9 @@ import { ACTION_TRIGGERS } from "./ActionTriggers";
 
 export type Action = {
   target: string;
-  targetNode?: string;
   trigger: ACTION_TRIGGERS | any;
   cb: (event: Event | any) => void;
   id?: string;
-  delay?: number; // in ms
 };
 
 export const createActionSlice: StateCreator<
@@ -25,7 +23,6 @@ export const createActionSlice: StateCreator<
         ]),
       });
     } else {
-      // remove all the actions with the same trigger
       const filteredStoredActions = get()
         .getActions(action.target)
         ?.filter((elem) => elem.trigger !== action.trigger);
@@ -41,24 +38,12 @@ export const createActionSlice: StateCreator<
   triggerAction: (
     trigger: ACTION_TRIGGERS | any,
     targetName: string,
-    targetNodeName?,
     event?
   ) => {
     const selectedActions = get()
       .actions.get(targetName)
-      ?.filter(
-        (action) =>
-          action.targetNode === undefined && action.trigger === trigger
-      );
-    if (targetNodeName) {
-      const selectedSubActions = get()
-        .actions.get(targetName)
-        ?.filter(
-          (action) =>
-            action.targetNode === targetNodeName && action.trigger === trigger
-        );
-      selectedActions?.push(...(selectedSubActions || []));
-    }
+      ?.filter((action) => action.trigger === trigger);
+
     selectedActions &&
       selectedActions.forEach((action) => {
         action.cb(event);
@@ -73,7 +58,6 @@ export interface ActionSlice {
   triggerAction: (
     trigger: ACTION_TRIGGERS | any,
     targetName: string,
-    targetNodeName?: string,
     event?: Event | any
   ) => void;
 }
