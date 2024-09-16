@@ -163,23 +163,23 @@ function App({
           onPointerMissed={HandleMissClick}
           gl={{ antialias: true }}
         >
-          <fog attach="fog" args={["black", 15, 60]} />
+          <fog attach="fog" args={["black", 15, 120]} />
           <Grid
             renderOrder={-1}
             position={[0, 0, 0]}
             infiniteGrid
-            cellSize={0.2}
+            cellSize={0.4}
             cellThickness={0.6}
-            sectionSize={1}
+            sectionSize={2}
             sectionThickness={1.5}
-            fadeDistance={31}
+            fadeDistance={60}
             rotation={[Math.PI / 2, 0, 0]}
           />
           <OrbitControls
             makeDefault
             enableRotate
             enablePan={false}
-            maxDistance={30}
+            maxDistance={100}
             minDistance={5}
             maxPolarAngle={Math.PI / 1.5}
             minPolarAngle={Math.PI / 3}

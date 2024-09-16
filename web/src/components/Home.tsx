@@ -3,6 +3,7 @@ import App from "../App";
 import { Intro } from "./Intro";
 import { Controller } from "./Controller";
 import { dummySelection, NodeObject, Selection } from "../types";
+import { Configurations } from "./Configurations";
 
 export const Home = () => {
   const [introVisible, setIntroVisible] = useState(true);
@@ -21,6 +22,7 @@ export const Home = () => {
           setNodes3d={setNodes3d}
         />
       )}
+      {!introVisible && <Configurations />}
       <App
         selected={selected}
         setSelected={setSelected}

@@ -101,7 +101,7 @@ export const NodeComponent = ({
         }}
       >
         <mesh
-          scale={[0.2, 0.2, 0.2]}
+          scale={[0.3, 0.3, 0.3]}
           name={name}
           onClick={(e) => HandleSelection()}
           ref={nodeRef}
