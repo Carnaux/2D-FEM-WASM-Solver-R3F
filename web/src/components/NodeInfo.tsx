@@ -4,6 +4,7 @@ import { useStore } from "../store/Store";
 import { ACTION_TRIGGERS } from "../store/ActionTriggers";
 
 import "../styles/NodeInfo.scss";
+import { convertValue } from "../utils/convertValue";
 export const NodeInfo = ({ selected }: any) => {
   const addAction = useStore((store) => store.addAction);
   const [posState, setPosState] = useState<Vector3>(
@@ -35,11 +36,11 @@ export const NodeInfo = ({ selected }: any) => {
         <div className="positionInput">
           <div className="inputAndLabel">
             <p>X</p>
-            <input value={posState.x.toFixed(4)} />
+            <input value={convertValue(posState.x.toFixed(4))} />
           </div>
           <div className="inputAndLabel">
             <p>Y</p>
-            <input value={posState.y.toFixed(4)} />
+            <input value={convertValue(posState.y.toFixed(4))} />
           </div>
         </div>
       </div>
@@ -61,11 +62,11 @@ export const NodeInfo = ({ selected }: any) => {
         <div className="lockInput">
           <div className="inputAndLabel">
             <p>X</p>
-            <input type="checkbox" value={posState.x.toFixed(4)} />
+            <input type="checkbox" />
           </div>
           <div className="inputAndLabel">
             <p>Y</p>
-            <input type="checkbox" value={posState.y.toFixed(4)} />
+            <input type="checkbox" />
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import "./styles/App.scss";
-import { Grid, OrbitControls, Environment } from "@react-three/drei";
+import { Grid, OrbitControls, Environment, Text } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import {
   EffectComposer,
@@ -9,12 +9,13 @@ import {
 } from "@react-three/postprocessing";
 
 import * as WASM from "./wasm/fem-solver";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NodeComponent } from "./components/3DComponents/NodeComponent";
 import { AxesHelper } from "./components/3DComponents/AxesHelper";
 import { AppProps, dummySelection } from "./types";
 import { useStore } from "./store/Store";
 import { ACTION_TRIGGERS } from "./store/ActionTriggers";
+import { Group } from "three";
 
 function App({
   selected,
@@ -26,6 +27,9 @@ function App({
 }: AppProps) {
   const addAction = useStore((store) => store.addAction);
   const [wasmModule, setWasmModule] = useState<any>(null);
+
+  const rootRef = useRef<Group>(null);
+  const orbitControlRef = useRef<any>(null);
 
   // Run WASM module
   const loadWasmModule = async () => {
@@ -172,10 +176,11 @@ function App({
             cellThickness={0.6}
             sectionSize={2}
             sectionThickness={1.5}
-            fadeDistance={60}
+            fadeDistance={65}
             rotation={[Math.PI / 2, 0, 0]}
           />
           <OrbitControls
+            ref={orbitControlRef}
             makeDefault
             enableRotate
             enablePan={false}
@@ -185,7 +190,18 @@ function App({
             minPolarAngle={Math.PI / 3}
             maxAzimuthAngle={Math.PI / 5}
             minAzimuthAngle={-Math.PI / 5}
+            dampingFactor={0.5}
           />
+          <Text
+            color="black"
+            anchorX="center"
+            anchorY="middle"
+            position={[-0.25, 1, 0]}
+            rotation={[0, 0, Math.PI / 2]}
+            scale={[0.5, 0.5, 0.5]}
+          >
+            1 m
+          </Text>
           <EffectComposer autoClear={false}>
             <Bloom luminanceThreshold={2} mipmapBlur intensity={0.1} />
             <ToneMapping />
@@ -199,18 +215,20 @@ function App({
               blur={false} // whether the outline should be blurred
             />
           </EffectComposer>
-          <Environment background preset="sunset" blur={0.85} />
+          <Environment background preset="city" blur={0.85} />
           <AxesHelper />
-          {nodes3d.map((NodeData: any, index: any) => (
-            <NodeComponent
-              name={NodeData.name}
-              selected={selected}
-              setSelected={setSelected}
-              outlineHover={outlineHover}
-              setOutlineHover={setOutlineHover}
-              key={NodeData.name}
-            />
-          ))}
+          <group ref={rootRef}>
+            {nodes3d.map((NodeData: any, index: any) => (
+              <NodeComponent
+                name={NodeData.name}
+                selected={selected}
+                setSelected={setSelected}
+                outlineHover={outlineHover}
+                setOutlineHover={setOutlineHover}
+                key={NodeData.name}
+              />
+            ))}
+          </group>
         </Canvas>
       )}
     </>

@@ -5,6 +5,7 @@
   "keywords": [],
   "main": "src/index.js",
   "dependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@react-three/drei": "^9.103.0",
     "@react-three/fiber": "^8.16.1",
     "@react-three/postprocessing": "^2.16.2",

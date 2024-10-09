@@ -13,16 +13,17 @@ export const Configurations = () => {
     >
       {!isHovered && <div className="indicator">ˆˆ</div>}
       {isHovered && (
-        <div className="content">
-          <h3>Scale</h3>
-          <input
-            type="range"
-            min={1}
-            max={20}
-            value={scaleValue}
-            onChange={(e: any) => setScaleValue(e.target.value)}
-          />
-        </div>
+        <></>
+        // <div className="content">
+        //   <h3>Scale</h3>
+        //   <input
+        //     type="range"
+        //     min={1}
+        //     max={20}
+        //     value={scaleValue}
+        //     onChange={(e: any) => setScaleValue(e.target.value)}
+        //   />
+        // </div>
       )}
     </div>
   );
